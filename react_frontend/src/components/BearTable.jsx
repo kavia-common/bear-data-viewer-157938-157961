@@ -3,10 +3,29 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /**
  * PUBLIC_INTERFACE
  * BearTable component displays a table of bear pose records.
- * - Fetches data from http://localhost:5000/api/bears
- * - Auto-refreshes every 10 seconds
+ * - Fetches data from a backend API (defaults to http://localhost:5000/api/bears)
+ * - Auto-refreshes every N seconds (default: 10s)
  * - Shows a loading state and basic error messaging
  * - Columns: Bear ID, Pose, Timestamp
+ *
+ * Configuration:
+ * - REACT_APP_BEAR_API_URL: full API endpoint to fetch bear data
+ * - REACT_APP_REFRESH_INTERVAL_SECONDS: refresh interval in seconds
+ */
+
+// Derive configuration from environment with sensible defaults
+const DEFAULT_API_URL = "http://localhost:5000/api/bears";
+const API_URL = process.env.REACT_APP_BEAR_API_URL || DEFAULT_API_URL;
+
+const ENV_REFRESH_SECS = Number(process.env.REACT_APP_REFRESH_INTERVAL_SECONDS);
+const REFRESH_INTERVAL_MS =
+  Number.isFinite(ENV_REFRESH_SECS) && ENV_REFRESH_SECS > 0
+    ? ENV_REFRESH_SECS * 1000
+    : 10000;
+
+// PUBLIC_INTERFACE
+/**
+ * BearTable displays the fetched data in a modern, minimal table.
  */
 function BearTable() {
   const [bears, setBears] = useState([]);
@@ -23,7 +42,7 @@ function BearTable() {
    * @returns {Promise<Array<{bearId: string, pose: string, timestamp: string}>>}
    */
   const fetchBears = async (signal) => {
-    const res = await fetch("http://localhost:5000/api/bears", { signal });
+    const res = await fetch(API_URL, { signal });
     if (!res.ok) {
       throw new Error(`Failed to fetch: ${res.status}`);
     }
@@ -58,7 +77,7 @@ function BearTable() {
 
     initialLoad();
 
-    // Set up 10s auto-refresh
+    // Set up auto-refresh on interval
     intervalRef.current = setInterval(async () => {
       try {
         setRefreshing(true);
@@ -68,14 +87,11 @@ function BearTable() {
         setLastUpdated(new Date().toISOString());
       } catch (err) {
         if (!isMounted) return;
-        // Keep existing data on refresh failures; show a light error
-        // (Avoid replacing the main loading view)
-        // Optionally surface a compact message
-        // No-op to keep UI minimal
+        // Keep existing data on refresh failures; minimal UI noise
       } finally {
         if (isMounted) setRefreshing(false);
       }
-    }, 10000);
+    }, REFRESH_INTERVAL_MS);
 
     return () => {
       isMounted = false;
@@ -136,6 +152,8 @@ function BearTable() {
     );
   };
 
+  const refreshSeconds = Math.round(REFRESH_INTERVAL_MS / 1000);
+
   return (
     <section className="card">
       <div className="card-header">
@@ -144,8 +162,9 @@ function BearTable() {
           <div className="meta">
             <span className="dot" aria-hidden="true" />
             <span className="meta-text">
-              Auto-refresh every 10s
-              {formattedUpdatedAt ? ` • Last updated ${formattedUpdatedAt}` : ""}
+              {`Auto-refresh every ${refreshSeconds}s${
+                formattedUpdatedAt ? ` • Last updated ${formattedUpdatedAt}` : ""
+              }`}
             </span>
           </div>
         </div>
