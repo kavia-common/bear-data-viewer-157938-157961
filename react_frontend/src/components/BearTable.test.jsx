@@ -46,7 +46,7 @@ describe("BearTable", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:5000/api/bears",
+        "https://vscode-internal-16867-beta.beta01.cloud.kavia.ai:3001/api/bears",
         expect.any(Object)
       );
     });

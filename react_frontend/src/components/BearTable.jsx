@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /**
  * PUBLIC_INTERFACE
  * BearTable component displays a table of bear pose records.
- * - Fetches data from a backend API (defaults to http://localhost:5000/api/bears)
+ * - Fetches data from a backend API (defaults to https://vscode-internal-16867-beta.beta01.cloud.kavia.ai:3001/api/bears)
  * - Auto-refreshes every N seconds (default: 10s)
  * - Shows a loading state and basic error messaging
  * - Columns: Bear ID, Pose, Timestamp
@@ -14,7 +14,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  */
 
 // Derive configuration from environment with sensible defaults
-const DEFAULT_API_URL = "http://localhost:5000/api/bears";
+const DEFAULT_API_URL =
+  "https://vscode-internal-16867-beta.beta01.cloud.kavia.ai:3001/api/bears";
 const API_URL = process.env.REACT_APP_BEAR_API_URL || DEFAULT_API_URL;
 
 const ENV_REFRESH_SECS = Number(process.env.REACT_APP_REFRESH_INTERVAL_SECONDS);
