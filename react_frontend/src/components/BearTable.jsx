@@ -13,9 +13,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  * - REACT_APP_REFRESH_INTERVAL_SECONDS: refresh interval in seconds
  */
 
-// Derive configuration from environment with sensible defaults
-const DEFAULT_API_URL =
-  "https://vscode-internal-14781-beta.beta01.cloud.kavia.ai:3001/api/bears";
+/**
+ * Resolve configuration from environment with sensible defaults that match the
+ * target branch (cga-cm75baac35).
+ */
+const DEFAULT_API_URL = "http://localhost:5000/api/bears";
 const API_URL = process.env.REACT_APP_BEAR_API_URL || DEFAULT_API_URL;
 
 const ENV_REFRESH_SECS = Number(process.env.REACT_APP_REFRESH_INTERVAL_SECONDS);
