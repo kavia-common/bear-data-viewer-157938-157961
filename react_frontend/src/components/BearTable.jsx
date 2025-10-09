@@ -58,9 +58,6 @@ export default function BearTable() {
 
   return (
     <div style={{ padding: 16 }}>
-      <div style={{ marginBottom: 8, color: "#555" }}>
-        Source: {endpoint || "(no API configured)"} • Refresh: {refreshSec}s
-      </div>
       {loading && <div>Loading...</div>}
       {error && (
         <div style={{ color: "#b00020", marginBottom: 8 }}>
