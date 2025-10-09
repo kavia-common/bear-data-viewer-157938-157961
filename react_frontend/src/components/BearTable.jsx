@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { getApiBaseUrl, getRefreshIntervalSeconds } from "../config";
 
 /**
@@ -23,6 +23,19 @@ export default function BearTable() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Live toggle - default to true, persist across reload via sessionStorage
+  const [isLive, setIsLive] = useState(() => {
+    const saved = typeof window !== "undefined" ? window.sessionStorage.getItem("bearTable:isLive") : null;
+    return saved === null ? true : saved === "true";
+  });
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("bearTable:isLive", String(isLive));
+    }
+  }, [isLive]);
 
   // Derive which schema we're rendering (original bears with bearId/pose/timestamp or detections)
   const schema = useMemo(() => {
@@ -77,15 +90,39 @@ export default function BearTable() {
     }
   };
 
+  // Initial load and re-fetch on endpoint change
   useEffect(() => {
     fetchData();
-    if (refreshSec > 0) {
-      const id = setInterval(fetchData, refreshSec * 1000);
-      return () => clearInterval(id);
-    }
-    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, refreshSec]);
+  }, [endpoint]);
+
+  // Manage auto-refresh interval based on isLive and refreshSec
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (isLive && refreshSec > 0) {
+      intervalRef.current = setInterval(fetchData, refreshSec * 1000);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, refreshSec, endpoint]);
+
+  // Accessible toggle handlers
+  const toggleLive = () => setIsLive((v) => !v);
+  const onKeyToggle = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleLive();
+    }
+  };
 
   // Render helpers based on schema
   const renderHeader = () => {
@@ -134,6 +171,36 @@ export default function BearTable() {
 
   return (
     <div style={{ padding: 16 }}>
+      {/* Header row with title and controls */}
+      <div style={headerBarStyle}>
+        <div style={headerLeftStyle}>
+          <div style={cardTitleStyle}>Bear Data</div>
+          <div style={metaStyle}>
+            <span className="dot" aria-hidden="true" />
+            <span aria-live="polite">
+              {isLive ? `Auto-refresh every ${refreshSec || 10}s` : "Paused"}
+            </span>
+            {loading && (
+              <span className="chip chip-refreshing" style={{ marginLeft: 8 }}>
+                <span className="spinner" aria-hidden="true" />
+                Refreshing…
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn"
+          onClick={toggleLive}
+          onKeyDown={onKeyToggle}
+          aria-label={isLive ? "Turn live updates off" : "Turn live updates on"}
+          aria-pressed={isLive}
+          style={liveBtnStyle(isLive)}
+        >
+          {isLive ? "Live" : "Paused"}
+        </button>
+      </div>
+
       {loading && <div>Loading...</div>}
       {error && (
         <div style={{ color: "#b00020", marginBottom: 8 }}>
@@ -169,3 +236,45 @@ const tdStyle = {
   borderBottom: "1px solid #eee",
   padding: "8px",
 };
+
+const headerBarStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "8px 0 12px 0",
+};
+
+const headerLeftStyle = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const cardTitleStyle = {
+  fontSize: 18,
+  fontWeight: 600,
+  marginBottom: 4,
+};
+
+const metaStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  color: "#4b5563",
+  fontSize: 13,
+};
+
+function liveBtnStyle(isLive) {
+  return {
+    appearance: "none",
+    border: "1px solid var(--border, #e5e7eb)",
+    background: isLive ? "#f0f7ff" : "#fafafa",
+    color: isLive ? "var(--primary, #1976d2)" : "#374151",
+    padding: "8px 12px",
+    borderRadius: 999,
+    fontSize: 13,
+    cursor: "pointer",
+    boxShadow: "var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
+    transition: "background 120ms ease, color 120ms ease, border-color 120ms ease",
+  };
+}

@@ -14,7 +14,7 @@ function App() {
         <header>
           <h1 className="page-title">Bear Pose Monitor</h1>
           <p className="page-subtitle">
-            Live updates of bear poses from the backend API
+            Live updates from the backend API
           </p>
         </header>
         <BearTable />
