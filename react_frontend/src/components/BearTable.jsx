@@ -24,6 +24,35 @@ export default function BearTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Derive which schema we're rendering (original bears with bearId/pose/timestamp or detections)
+  const schema = useMemo(() => {
+    if (rows.length === 0) return "unknown";
+    const r = rows[0] || {};
+    if (r && ("bearId" in r || "pose" in r || "timestamp" in r)) return "bears";
+    if (r && ("label" in r || "frame_time_seconds" in r)) return "detections";
+    return "unknown";
+  }, [rows]);
+
+  const parseRows = (payload) => {
+    // Support: raw array, {bears: [...]}, {detections: [...]}
+    const list = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.bears)
+      ? payload.bears
+      : Array.isArray(payload?.detections)
+      ? payload.detections
+      : [];
+    // Log when empty to aid troubleshooting, include object keys (but not URL)
+    if (!Array.isArray(list) || list.length === 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        "[BearTable] Parsed zero rows from /api/bears. Payload keys:",
+        payload && typeof payload === "object" ? Object.keys(payload) : `(type: ${typeof payload})`
+      );
+    }
+    return list;
+  };
+
   const fetchData = async () => {
     if (!apiBase || !endpoint) {
       // No API base at all — let UI show helpful message
@@ -37,14 +66,10 @@ export default function BearTable() {
       if (!resp.ok) {
         throw new Error(`HTTP ${resp.status}`);
       }
-      const data = await resp.json();
-      // Support both response shapes:
-      // 1) Array response: [ ...rows ]
-      // 2) Object response: { detections: [ ...rows ], count?, last_updated? }
-      const rows = Array.isArray(data)
-        ? data
-        : (Array.isArray(data?.detections) ? data.detections : []);
-      setRows(rows);
+      const payload = await resp.json();
+
+      const parsed = parseRows(payload);
+      setRows(parsed);
     } catch (e) {
       setError(e?.message || "Failed to fetch");
     } finally {
@@ -62,6 +87,51 @@ export default function BearTable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint, refreshSec]);
 
+  // Render helpers based on schema
+  const renderHeader = () => {
+    if (schema === "detections") {
+      return (
+        <tr>
+          <th style={thStyle}>Label</th>
+          <th style={thStyle}>Frame Time (s)</th>
+          <th style={thStyle}>Confidence</th>
+        </tr>
+      );
+    }
+    // Default to original bears schema
+    return (
+      <tr>
+        <th style={thStyle}>Bear ID</th>
+        <th style={thStyle}>Pose</th>
+        <th style={thStyle}>Timestamp (UTC)</th>
+      </tr>
+    );
+  };
+
+  const renderRow = (r, idx) => {
+    if (schema === "detections") {
+      return (
+        <tr key={idx}>
+          <td style={tdStyle}>{r.label ?? ""}</td>
+          <td style={tdStyle} className="mono">
+            {r.frame_time_seconds ?? ""}
+          </td>
+          <td style={tdStyle}>{r.confidence ?? ""}</td>
+        </tr>
+      );
+    }
+    // Default to original bears schema
+    return (
+      <tr key={idx}>
+        <td style={tdStyle}>{r.bearId ?? ""}</td>
+        <td style={tdStyle}>{r.pose ?? ""}</td>
+        <td style={tdStyle} className="mono">
+          {r.timestamp ?? ""}
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div style={{ padding: 16 }}>
       {loading && <div>Loading...</div>}
@@ -74,22 +144,8 @@ export default function BearTable() {
       {!loading && !error && rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%" }}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Bear ID</th>
-                <th style={thStyle}>Pose</th>
-                <th style={thStyle}>Timestamp (UTC)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, idx) => (
-                <tr key={idx}>
-                  <td style={tdStyle}>{r.bearId}</td>
-                  <td style={tdStyle}>{r.pose}</td>
-                  <td style={tdStyle}>{r.timestamp}</td>
-                </tr>
-              ))}
-            </tbody>
+            <thead>{renderHeader()}</thead>
+            <tbody>{rows.map((r, idx) => renderRow(r, idx))}</tbody>
           </table>
         </div>
       )}
