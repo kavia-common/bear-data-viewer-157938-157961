@@ -1,217 +1,101 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 
 /**
- * PUBLIC_INTERFACE
- * BearTable component displays a table of bear pose records.
- * - Fetches data from a backend API (defaults to https://vscode-internal-25817-beta.beta01.cloud.kavia.ai:3001/api/bears)
- * - Auto-refreshes every N seconds (default: 10s)
- * - Shows a loading state and basic error messaging
- * - Columns: Bear ID, Pose, Timestamp
- *
- * Configuration:
- * - REACT_APP_BEAR_API_URL: full API endpoint to fetch bear data
- * - REACT_APP_REFRESH_INTERVAL_SECONDS: refresh interval in seconds
+ * BearTable
+ * Displays bear pose records fetched from backend API.
+ * - API base URL configured via REACT_APP_BEAR_API_URL
+ * - Auto-refresh interval configured via REACT_APP_REFRESH_INTERVAL_SECONDS
  */
-
-// Derive configuration from environment with sensible defaults
-const DEFAULT_API_URL =
-  "https://vscode-internal-25817-beta.beta01.cloud.kavia.ai:3001/api/bears";
-const API_URL = process.env.REACT_APP_BEAR_API_URL || DEFAULT_API_URL;
-
-const ENV_REFRESH_SECS = Number(process.env.REACT_APP_REFRESH_INTERVAL_SECONDS);
-const REFRESH_INTERVAL_MS =
-  Number.isFinite(ENV_REFRESH_SECS) && ENV_REFRESH_SECS > 0
-    ? ENV_REFRESH_SECS * 1000
-    : 10000;
-
 // PUBLIC_INTERFACE
-/**
- * BearTable displays the fetched data in a modern, minimal table.
- */
-function BearTable() {
-  const [bears, setBears] = useState([]);
+export default function BearTable() {
+  /** This is a public component that fetches bear data and renders a table. */
+  const apiBase = (process.env.REACT_APP_BEAR_API_URL || "").replace(/\/+$/, "");
+  const refreshSec = Number(process.env.REACT_APP_REFRESH_INTERVAL_SECONDS || "10");
+  const endpoint = useMemo(() => `${apiBase}/api/bears`, [apiBase]);
+
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const intervalRef = useRef(null);
+  const [error, setError] = useState("");
 
-  // PUBLIC_INTERFACE
-  /**
-   * Fetch bears from the backend.
-   * @param {AbortSignal} [signal] - optional abort signal to cancel the request
-   * @returns {Promise<Array<{bearId: string, pose: string, timestamp: string}>>}
-   */
-  const fetchBears = async (signal) => {
-    const res = await fetch(API_URL, { signal });
-    if (!res.ok) {
-      throw new Error(`Failed to fetch: ${res.status}`);
+  const fetchData = async () => {
+    setError("");
+    try {
+      const resp = await fetch(endpoint, { method: "GET" });
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e?.message || "Failed to fetch");
+    } finally {
+      setLoading(false);
     }
-    return res.json();
   };
-
-  const formattedUpdatedAt = useMemo(() => {
-    return lastUpdated ? new Date(lastUpdated).toLocaleString() : null;
-  }, [lastUpdated]);
 
   useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-
-    const initialLoad = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchBears(controller.signal);
-        if (!isMounted) return;
-        setBears(Array.isArray(data) ? data : []);
-        setLastUpdated(new Date().toISOString());
-      } catch (err) {
-        if (!isMounted) return;
-        if (err.name !== "AbortError") {
-          setError("Unable to load bear data. Please try again.");
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    initialLoad();
-
-    // Set up auto-refresh on interval
-    intervalRef.current = setInterval(async () => {
-      try {
-        setRefreshing(true);
-        const data = await fetchBears();
-        if (!isMounted) return;
-        setBears(Array.isArray(data) ? data : []);
-        setLastUpdated(new Date().toISOString());
-      } catch (err) {
-        if (!isMounted) return;
-        // Keep existing data on refresh failures; minimal UI noise
-      } finally {
-        if (isMounted) setRefreshing(false);
-      }
-    }, REFRESH_INTERVAL_MS);
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  const renderBody = () => {
-    if (loading) {
-      return (
-        <tbody>
-          {[...Array(5)].map((_, idx) => (
-            <tr key={`skeleton-${idx}`} className="skeleton-row">
-              <td colSpan={3}>
-                <div className="skeleton-line" />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      );
+    fetchData();
+    if (refreshSec > 0) {
+      const id = setInterval(fetchData, refreshSec * 1000);
+      return () => clearInterval(id);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint, refreshSec]);
 
-    if (error) {
-      return (
-        <tbody>
-          <tr>
-            <td colSpan={3} className="error-cell">
-              {error}
-            </td>
-          </tr>
-        </tbody>
-      );
-    }
-
-    if (!bears || bears.length === 0) {
-      return (
-        <tbody>
-          <tr>
-            <td colSpan={3} className="muted-cell">
-              No data available.
-            </td>
-          </tr>
-        </tbody>
-      );
-    }
-
+  if (!apiBase) {
     return (
-      <tbody>
-        {bears.map((bear, idx) => (
-          <tr key={bear.bearId ? `${bear.bearId}-${idx}` : `row-${idx}`}>
-            <td className="mono">{bear.bearId ?? "-"}</td>
-            <td>{bear.pose ?? "-"}</td>
-            <td>{formatTimestamp(bear.timestamp)}</td>
-          </tr>
-        ))}
-      </tbody>
+      <div style={{ padding: 16, color: "#b00020" }}>
+        Missing REACT_APP_BEAR_API_URL environment variable.
+      </div>
     );
-  };
-
-  const refreshSeconds = Math.round(REFRESH_INTERVAL_MS / 1000);
+  }
 
   return (
-    <section className="card">
-      <div className="card-header">
-        <div className="card-header-left">
-          <h2 className="card-title">Bear Data</h2>
-          <div className="meta">
-            <span className="dot" aria-hidden="true" />
-            <span className="meta-text">
-              {`Auto-refresh every ${refreshSeconds}s${
-                formattedUpdatedAt ? ` • Last updated ${formattedUpdatedAt}` : ""
-              }`}
-            </span>
-          </div>
-        </div>
-        <div className="card-header-right">
-          {refreshing ? (
-            <div className="chip chip-refreshing" aria-live="polite">
-              <span className="spinner" aria-hidden="true" />
-              Refreshing
-            </div>
-          ) : (
-            <div className="chip chip-idle">Live</div>
-          )}
-        </div>
+    <div style={{ padding: 16 }}>
+      <div style={{ marginBottom: 8, color: "#555" }}>
+        Source: {endpoint} • Refresh: {refreshSec}s
       </div>
-
-      <div className="table-wrap">
-        <table className="table" role="table">
-          <thead>
-            <tr>
-              <th scope="col">Bear ID</th>
-              <th scope="col">Pose</th>
-              <th scope="col">Timestamp</th>
-            </tr>
-          </thead>
-          {renderBody()}
-        </table>
-      </div>
-    </section>
+      {loading && <div>Loading...</div>}
+      {error && (
+        <div style={{ color: "#b00020", marginBottom: 8 }}>
+          Error: {error}
+        </div>
+      )}
+      {!loading && !error && rows.length === 0 && <div>No data</div>}
+      {!loading && !error && rows.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Bear ID</th>
+                <th style={thStyle}>Pose</th>
+                <th style={thStyle}>Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr key={idx}>
+                  <td style={tdStyle}>{r.bearId}</td>
+                  <td style={tdStyle}>{r.pose}</td>
+                  <td style={tdStyle}>{r.timestamp}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
-// PUBLIC_INTERFACE
-/**
- * Format an ISO timestamp into a readable local date/time string.
- * @param {string} ts - ISO 8601 timestamp string
- * @returns {string}
- */
-function formatTimestamp(ts) {
-  if (!ts) return "-";
-  try {
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return String(ts);
-    return d.toLocaleString();
-  } catch {
-    return String(ts);
-  }
-}
+const thStyle = {
+  textAlign: "left",
+  borderBottom: "1px solid #ddd",
+  padding: "8px",
+  background: "#f7f7f7",
+};
 
-export default BearTable;
+const tdStyle = {
+  borderBottom: "1px solid #eee",
+  padding: "8px",
+};
