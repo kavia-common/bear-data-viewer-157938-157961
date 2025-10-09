@@ -9,3 +9,6 @@ Environment
 
 States
 - The ResultsTable shows loading, error, and empty states and auto-refreshes every 10s by default.
+
+Entry
+- The app entry renders App.jsx which displays ResultsTable by default. Legacy BearTable remains in the codebase but is not the default view.
