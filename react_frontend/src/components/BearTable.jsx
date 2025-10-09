@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { getApiBaseUrl, getRefreshIntervalSeconds } from "../config";
 
 /**
  * BearTable
@@ -9,15 +10,27 @@ import React, { useEffect, useState, useMemo } from "react";
 // PUBLIC_INTERFACE
 export default function BearTable() {
   /** This is a public component that fetches bear data and renders a table. */
-  const apiBase = (process.env.REACT_APP_BEAR_API_URL || "").replace(/\/+$/, "");
-  const refreshSec = Number(process.env.REACT_APP_REFRESH_INTERVAL_SECONDS || "10");
-  const endpoint = useMemo(() => `${apiBase}/api/bears`, [apiBase]);
+  const apiBase = getApiBaseUrl(); // already trimmed and may be derived fallback
+  const refreshSec = getRefreshIntervalSeconds(10);
+
+  const endpoint = useMemo(() => {
+    const base = (apiBase || "").replace(/\/+$/, "");
+    // If base already ends with /api, avoid duplication
+    const bearsPath = base.endsWith("/api") ? "/bears" : "/api/bears";
+    return base ? `${base}${bearsPath}` : "";
+  }, [apiBase]);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchData = async () => {
+    if (!apiBase || !endpoint) {
+      // No API base at all — let UI show helpful message
+      setLoading(false);
+      setError("API base URL is not configured.");
+      return;
+    }
     setError("");
     try {
       const resp = await fetch(endpoint, { method: "GET" });
@@ -39,21 +52,14 @@ export default function BearTable() {
       const id = setInterval(fetchData, refreshSec * 1000);
       return () => clearInterval(id);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint, refreshSec]);
-
-  if (!apiBase) {
-    return (
-      <div style={{ padding: 16, color: "#b00020" }}>
-        Missing REACT_APP_BEAR_API_URL environment variable.
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: 16 }}>
       <div style={{ marginBottom: 8, color: "#555" }}>
-        Source: {endpoint} • Refresh: {refreshSec}s
+        Source: {endpoint || "(no API configured)"} • Refresh: {refreshSec}s
       </div>
       {loading && <div>Loading...</div>}
       {error && (
@@ -82,6 +88,11 @@ export default function BearTable() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {!apiBase && (
+        <div style={{ marginTop: 12, color: "#6b7280" }}>
+          Tip: Set REACT_APP_BEAR_API_URL in .env (e.g., https://host:3001) or rely on the default fallback.
         </div>
       )}
     </div>
