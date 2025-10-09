@@ -38,7 +38,13 @@ export default function BearTable() {
         throw new Error(`HTTP ${resp.status}`);
       }
       const data = await resp.json();
-      setRows(Array.isArray(data) ? data : []);
+      // Support both response shapes:
+      // 1) Array response: [ ...rows ]
+      // 2) Object response: { detections: [ ...rows ], count?, last_updated? }
+      const rows = Array.isArray(data)
+        ? data
+        : (Array.isArray(data?.detections) ? data.detections : []);
+      setRows(rows);
     } catch (e) {
       setError(e?.message || "Failed to fetch");
     } finally {
