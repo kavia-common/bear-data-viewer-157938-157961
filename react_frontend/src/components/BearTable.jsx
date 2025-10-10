@@ -75,6 +75,8 @@ export default function BearTable() {
     }
     setError("");
     try {
+      // eslint-disable-next-line no-console
+      console.info("[BearTable] Fetching:", endpoint);
       const resp = await fetch(endpoint, { method: "GET" });
       if (!resp.ok) {
         throw new Error(`HTTP ${resp.status}`);
@@ -84,7 +86,13 @@ export default function BearTable() {
       const parsed = parseRows(payload);
       setRows(parsed);
     } catch (e) {
-      setError(e?.message || "Failed to fetch");
+      // Provide a clearer error message that helps diagnose CORS/network vs HTTP.
+      const msg = e?.message || "Failed to fetch";
+      const hint =
+        msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")
+          ? " (Check API URL, CORS, and HTTP/HTTPS mismatch)"
+          : "";
+      setError(`${msg}${hint}`);
     } finally {
       setLoading(false);
     }

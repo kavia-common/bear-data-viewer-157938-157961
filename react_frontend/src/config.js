@@ -16,6 +16,12 @@
   *    - Replace :3000 with :3001 (dev default) and append '/api'
   *    - If no port 3000 present, still append '/api' to origin for common deployments.
   * Logs a console.warn if env var missing, and console.info with the resolved URL at app boot.
+  *
+  * NOTE:
+  * - Only REACT_APP_BEAR_API_URL is honored. Any duplicated variable like
+  *   REACT_APP_REACT_APP_BEAR_API_URL is ignored.
+  * - The returned value is a base that may already include /api; BearTable avoids
+  *   duplicating /api when constructing the endpoint.
   */
 
  // PUBLIC_INTERFACE
