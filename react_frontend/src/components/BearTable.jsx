@@ -4,21 +4,18 @@ import { getApiBaseUrl, getRefreshIntervalSeconds } from "../config";
 /**
  * BearTable
  * Displays bear pose records fetched from backend API.
- * - API base URL configured via REACT_APP_BEAR_API_URL
  * - Auto-refresh interval configured via REACT_APP_REFRESH_INTERVAL_SECONDS
  */
 // PUBLIC_INTERFACE
 export default function BearTable() {
   /** This is a public component that fetches bear data and renders a table. */
-  const apiBase = getApiBaseUrl(); // already trimmed and may be derived fallback
+  const apiBase = getApiBaseUrl(); // still used for tip visibility and logs
   const refreshSec = getRefreshIntervalSeconds(10);
 
+  // Hardcoded per user request; consider reverting to env-based config later.
   const endpoint = useMemo(() => {
-    const base = (apiBase || "").replace(/\/+$/, "");
-    // If base already ends with /api, avoid duplication
-    const bearsPath = base.endsWith("/api") ? "/bears" : "/api/bears";
-    return base ? `${base}${bearsPath}` : "";
-  }, [apiBase]);
+    return "https://vscode-internal-42290-qa.qa01.cloud.kavia.ai:3001/api/bears";
+  }, []);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,12 +64,6 @@ export default function BearTable() {
   };
 
   const fetchData = async () => {
-    if (!apiBase || !endpoint) {
-      // No API base at all — let UI show helpful message
-      setLoading(false);
-      setError("API base URL is not configured.");
-      return;
-    }
     setError("");
     try {
       // eslint-disable-next-line no-console
@@ -98,11 +89,11 @@ export default function BearTable() {
     }
   };
 
-  // Initial load and re-fetch on endpoint change
+  // Initial load
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint]);
+  }, []);
 
   // Manage auto-refresh interval based on isLive and refreshSec
   useEffect(() => {
@@ -121,7 +112,7 @@ export default function BearTable() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, refreshSec, endpoint]);
+  }, [isLive, refreshSec]);
 
   // Accessible toggle handlers
   const toggleLive = () => setIsLive((v) => !v);

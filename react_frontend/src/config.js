@@ -1,6 +1,9 @@
- /**
+ /** 
   * Application configuration helpers.
   * Centralizes environment variable resolution and provides safe fallbacks.
+  *
+  * Note: BearTable currently overrides the fetch URL with a hardcoded absolute endpoint
+  * per user instruction. Consider reverting to env-based config later.
   */
 
  // PUBLIC_INTERFACE
@@ -31,7 +34,7 @@
 
    let resolved = "";
    if (raw) {
-     resolved = raw.replace(/\/+$/, "");
+     resolved = raw.replace(/\/*$/, "");
    } else if (typeof window !== "undefined" && window.location && window.location.origin) {
      // Attempt a sensible default for local dev or proxied envs
      const origin = window.location.origin;
@@ -39,7 +42,7 @@
        origin.includes(":3000")
          ? origin.replace(":3000", ":3001")
          : origin;
-     resolved = `${base.replace(/\/+$/, "")}/api`;
+     resolved = `${base.replace(/\/*$/, "")}/api`;
      // Warn only when env var is not provided
      // eslint-disable-next-line no-console
      console.warn(
