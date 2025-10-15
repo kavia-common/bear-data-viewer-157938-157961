@@ -1,3 +1,27 @@
+/* Global base styles and tasteful background system */
+
+/* Background system variables (light theme) */
+:root {
+  /* Base background gradient stops */
+  --bg1: #f6f8fb;
+  --bg2: #eef2f7;
+
+  /* Optional accent color for decorative radial */
+  --bg-accent: 198, 188, 255; /* rgb tuple for flexibility */
+
+  /* Pattern opacity (keep subtle for readability) */
+  --bg-pattern-opacity: 0.06;
+
+  /* Surface and text from app theme (kept consistent with App.css) */
+  --surface: #ffffff;
+  --text-primary: #1f2937;
+}
+
+/* Ensure full viewport height for background layers */
+html, body, #root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -5,8 +29,65 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Layered background: soft linear gradient + subtle repeating pattern */
+  background:
+    /* subtle top-right vignette via radial gradient (static fallback) */
+    radial-gradient(1200px 800px at 95% 0%, rgba(var(--bg-accent), 0.10), rgba(255,255,255,0) 60%),
+    /* micro pattern using repeating linear gradients for texture */
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, var(--bg-pattern-opacity)) 0,
+      rgba(0, 0, 0, var(--bg-pattern-opacity)) 1px,
+      transparent 1px,
+      transparent 8px
+    ),
+    /* base background gradient */
+    linear-gradient(180deg, var(--bg1), var(--bg2));
+  color: var(--text-primary);
+  position: relative;
+  overflow-x: hidden; /* avoid scrollbars due to decorative layers */
 }
 
+/* Optional animated decorative radial accent using ::before.
+   It is toned down and respects prefers-reduced-motion. */
+body::before {
+  content: "";
+  position: fixed;
+  top: -240px;
+  right: -240px;
+  width: 560px;
+  height: 560px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    rgba(var(--bg-accent), 0.22),
+    rgba(var(--bg-accent), 0.12) 35%,
+    rgba(var(--bg-accent), 0.00) 70%
+  );
+  filter: blur(40px);
+  opacity: 0.6;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  animation: floatAccent 12s ease-in-out infinite alternate;
+  z-index: 0; /* stays behind content */
+}
+
+/* Gentle floating animation */
+@keyframes floatAccent {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.55; }
+  100% { transform: translate3d(-12px, 10px, 0) scale(1.03); opacity: 0.65; }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* Code font (left as-is for any inline code elements) */
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
