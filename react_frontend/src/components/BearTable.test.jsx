@@ -47,6 +47,7 @@ describe("BearTable", () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
       const calledUrl = global.fetch.mock.calls[0][0];
+      expect(typeof calledUrl).toBe("string");
       expect(String(calledUrl).endsWith("/api/bears")).toBe(true);
     });
   });

@@ -9,13 +9,18 @@ import { getApiBaseUrl, getRefreshIntervalSeconds } from "../config";
 // PUBLIC_INTERFACE
 export default function BearTable() {
   /** This is a public component that fetches bear data and renders a table. */
-  const apiBase = getApiBaseUrl(); // still used for tip visibility and logs
+  const apiBase = getApiBaseUrl();
   const refreshSec = getRefreshIntervalSeconds(10);
 
-  // Hardcoded per user request; consider reverting to env-based config later.
+  // Build endpoint safely:
+  // - If apiBase already ends with /api, append /bears
+  // - If apiBase does not end with /api, append /api/bears
   const endpoint = useMemo(() => {
-    return "https://vscode-internal-42290-qa.qa01.cloud.kavia.ai:3001/api/bears";
-  }, []);
+    if (!apiBase) return "";
+    const base = apiBase.replace(/\/+$/, "");
+    const hasApi = /\/api$/.test(base);
+    return hasApi ? `${base}/bears` : `${base}/api/bears`;
+  }, [apiBase]);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,12 +70,19 @@ export default function BearTable() {
 
   const fetchData = async () => {
     setError("");
+    if (!endpoint) {
+      setError("API base URL not resolved. Set REACT_APP_BEAR_API_URL or ensure fallback works.");
+      setLoading(false);
+      return;
+    }
     try {
       // eslint-disable-next-line no-console
       console.info("[BearTable] Fetching:", endpoint);
       const resp = await fetch(endpoint, { method: "GET" });
       if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
+        // Include status text if available
+        const statusText = resp.statusText || "";
+        throw new Error(`HTTP ${resp.status}${statusText ? ` ${statusText}` : ""}`);
       }
       const payload = await resp.json();
 
@@ -81,7 +93,7 @@ export default function BearTable() {
       const msg = e?.message || "Failed to fetch";
       const hint =
         msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network")
-          ? " (Check API URL, CORS, and HTTP/HTTPS mismatch)"
+          ? " (Check API URL, CORS, and HTTP/HTTPS/port mismatch)"
           : "";
       setError(`${msg}${hint}`);
     } finally {
@@ -93,7 +105,7 @@ export default function BearTable() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [endpoint]);
 
   // Manage auto-refresh interval based on isLive and refreshSec
   useEffect(() => {
@@ -112,7 +124,7 @@ export default function BearTable() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, refreshSec]);
+  }, [isLive, refreshSec, endpoint]);
 
   // Accessible toggle handlers
   const toggleLive = () => setIsLive((v) => !v);
@@ -204,6 +216,13 @@ export default function BearTable() {
       {error && (
         <div style={{ color: "#b00020", marginBottom: 8 }}>
           Error: {error}
+          {endpoint ? (
+            <div style={{ fontSize: 12, color: "#6b7280" }}>Endpoint: {endpoint}</div>
+          ) : (
+            <div style={{ fontSize: 12, color: "#6b7280" }}>
+              No endpoint resolved. Ensure environment variable REACT_APP_BEAR_API_URL is set (e.g., http://localhost:3001) or rely on the default fallback.
+            </div>
+          )}
         </div>
       )}
       {!loading && !error && rows.length === 0 && <div>No data</div>}
@@ -217,7 +236,7 @@ export default function BearTable() {
       )}
       {!apiBase && (
         <div style={{ marginTop: 12, color: "#6b7280" }}>
-          Tip: Set REACT_APP_BEAR_API_URL in .env (e.g., https://host:3001) or rely on the default fallback.
+          Tip: Set REACT_APP_BEAR_API_URL in .env (e.g., http://localhost:3001) or rely on the default fallback.
         </div>
       )}
     </div>

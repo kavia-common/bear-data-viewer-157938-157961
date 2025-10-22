@@ -22,7 +22,7 @@
   *
   * NOTE:
   * - Only REACT_APP_BEAR_API_URL is honored. Any duplicated variable like
-  *   REACT_APP_REACT_APP_BEAR_API_URL is ignored.
+  *   REACT_APP_REACT_APP_BEAR_API_URL is ignored (do not prefix twice).
   * - The returned value is a base that may already include /api; BearTable avoids
   *   duplicating /api when constructing the endpoint.
   */
